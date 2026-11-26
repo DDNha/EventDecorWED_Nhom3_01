@@ -1,113 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Lịch sử đặt hàng{% endblock title %}
-
+{% block title %}Theo dõi đơn hàng{% endblock %}
 {% block content %}
 <style>
-  .od-wrap { padding: 32px 0 56px; }
-  .od-card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px 22px; margin-bottom: 20px; }
-  .od-card.is-new { border-color: #198754; }
-  .od-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-  .od-item { display: flex; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px dashed #e5e5e5; }
-  .od-item:last-of-type { border-bottom: 0; }
-  .od-item img { width: 90px; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px; background: #eee; }
-  .od-meta { color: #555; font-size: .92rem; }
-  .od-price { color: #dc3545; font-weight: 700; }
-
-  .od-progress { list-style: none; display: flex; padding: 0; margin: 22px 0 0; }
-  .od-progress li { flex: 1; text-align: center; position: relative; font-size: .85rem; color: #8a8a8a; }
-  .od-progress li::before {
-    content: ""; display: block; width: 18px; height: 18px; margin: 0 auto 8px;
-    border-radius: 50%; background: #d9d9d9; position: relative; z-index: 1;
-  }
-  .od-progress li::after {
-    content: ""; position: absolute; top: 8px; left: -50%; width: 100%; height: 2px; background: #d9d9d9;
-  }
-  .od-progress li:first-child::after { display: none; }
-  .od-progress li.done { color: #198754; }
-  .od-progress li.done::before, .od-progress li.done::after { background: #198754; }
-  .od-progress li.current { font-weight: 700; }
-  .od-progress li.current::before { box-shadow: 0 0 0 4px rgba(25, 135, 84, .2); }
-
-  .badge-status { font-size: .8rem; padding: 6px 12px; border-radius: 50px; }
-  @media (max-width: 575px) {
-    .od-item { flex-direction: column; align-items: flex-start; }
-    .od-item img { width: 100%; }
-    .od-progress li { font-size: .75rem; }
-  }
+  .orders-page{background:#f6f7fb;min-height:70vh;padding:40px 0}.order-card{background:#fff;border:1px solid #e6e8ef;border-radius:18px;padding:24px;margin-bottom:22px;box-shadow:0 10px 30px rgba(30,40,80,.06)}
+  .order-card.is-new{border-color:#18a66a}.order-head,.order-meta{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.order-item{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px dashed #ddd}.order-item img{width:84px;height:66px;object-fit:cover;border-radius:10px;background:#eee}
+  .tracking{display:flex;list-style:none;padding:0;margin:28px 0 12px}.tracking li{flex:1;text-align:center;position:relative;color:#8b91a2;font-size:.78rem}.tracking li:before{content:"";display:block;width:18px;height:18px;border-radius:50%;background:#d9dce5;margin:0 auto 8px;position:relative;z-index:2}.tracking li:after{content:"";height:3px;background:#d9dce5;position:absolute;top:8px;right:50%;width:100%}.tracking li:first-child:after{display:none}.tracking li.done:before,.tracking li.done:after{background:#6f42c1}.tracking li.done{color:#5b2ca0;font-weight:600}.timeline{border-left:3px solid #e3def5;padding-left:18px;margin:18px 0}.timeline p{margin:0 0 12px}.review-box{background:#faf8ff;border-radius:14px;padding:18px;margin-top:18px}.status-badge{padding:7px 12px;border-radius:99px;background:#eee;font-weight:600}.status-completed{background:#d9f7e8;color:#087a49}.status-rejected,.status-cancelled{background:#fee2e2;color:#a51717}
+  @media(max-width:700px){.tracking{overflow:auto}.tracking li{min-width:110px}.order-item{align-items:flex-start}.order-item img{width:70px}}
 </style>
-
-<div class="container od-wrap">
-  <h1 class="h3 fw-bold mb-4">Lịch sử đặt hàng</h1>
-
-  {% if newId %}
-  <div class="alert alert-success" role="alert">
-    Đặt hàng thành công. Đơn hàng #{{ newId }} đã được gửi tới các đối tác.
-  </div>
-  {% endif %}
-
-  {% if not orders.length %}
-  <div class="text-center py-5">
-    <p class="text-secondary">Bạn chưa có đơn hàng nào.</p>
-    <a href="/services" class="btn btn-danger rounded-pill px-4">Xem dịch vụ</a>
-  </div>
-  {% endif %}
-
-  {% for o in orders %}
-  <article class="od-card {% if o.id == newId %}is-new{% endif %}">
-    <div class="od-head">
-      <div>
-        <strong>Đơn #{{ o.id }}</strong>
-        <span class="text-secondary ms-2">{{ o.createdAt.toLocaleDateString('vi-VN') }}</span>
-        <span class="text-secondary ms-2">· {{ o.items | length }} dịch vụ</span>
-      </div>
-      {% if o.cancelled %}
-      <span class="badge bg-secondary badge-status">Đã hủy</span>
-      {% elif o.step == steps.length - 1 %}
-      <span class="badge bg-success badge-status">Hoàn thành</span>
-      {% else %}
-      <span class="badge bg-warning text-dark badge-status">{{ steps[o.step] }}</span>
-      {% endif %}
-    </div>
-
-    {% for it in o.items %}
-    <div class="od-item">
-      <img src="{{ it.image }}" alt="{{ it.title }}">
-      <div class="od-meta flex-grow-1">
-        <div class="fw-semibold text-body">{{ it.title }}</div>
-        {% if it.partner %}<div>Đối tác: {{ it.partner }}</div>{% endif %}
-        <div>{{ it.price | vnd }} ₫ x {{ it.quantity }}</div>
-      </div>
-      <div class="od-price">{{ (it.price * it.quantity) | vnd }} ₫</div>
-    </div>
-    {% endfor %}
-
-    <div class="od-meta mt-3">
-      <div>Người đặt: {{ o.contactName }} · {{ o.phone }}</div>
-      <div>Ngày tổ chức: {{ o.date }}{% if o.time %} lúc {{ o.time }}{% endif %}</div>
-      <div>Địa điểm: {{ o.address }}</div>
-      <div>Thanh toán: {{ o.method }}</div>
-      {% if o.note %}<div>Ghi chú: {{ o.note }}</div>{% endif %}
-      <div class="mt-2">Tạm tính: {{ o.subtotal | vnd }} ₫ · Phí dịch vụ: {{ o.fee | vnd }} ₫</div>
-      <div class="od-price fs-5">Tổng cộng: {{ o.total | vnd }} VNĐ</div>
-    </div>
-
-    {% if not o.cancelled %}
-    <ol class="od-progress" aria-label="Tiến độ đơn hàng">
-      {% for s in steps %}
-      <li class="{% if loop.index0 <= o.step %}done{% endif %}{% if loop.index0 == o.step %} current{% endif %}">
-        {{ s }}
-      </li>
-      {% endfor %}
-    </ol>
-    {% endif %}
-
-    {% if not o.cancelled and o.step < steps.length - 1 %}
-    <!-- Nút thử giao diện: xoá khi đã có trang cho đối tác/admin -->
-    <form method="post" action="/orders/{{ o.id }}/advance" class="mt-3 text-end">
-      <button class="btn btn-sm btn-outline-secondary" type="submit">Đánh dấu hoàn thành (demo)</button>
-    </form>
-    {% endif %}
+<section class="orders-page"><div class="container">
+  <div class="d-flex justify-content-between align-items-end mb-4"><div><h1 class="h3 fw-bold">Theo dõi tiến độ đơn hàng</h1><p class="text-secondary mb-0">Tiến độ được cập nhật trực tiếp giữa admin, đối tác và bạn.</p></div><a href="/services" class="btn btn-outline-primary">Đặt thêm dịch vụ</a></div>
+  {% if notice %}<div class="alert alert-success">{{ notice }}</div>{% endif %}
+  {% if newIds.length %}<div class="alert alert-success">Đặt dịch vụ thành công. Hệ thống đã tách đơn theo từng đối tác để theo dõi chính xác.</div>{% endif %}
+  {% for order in orders %}
+  <article class="order-card {% if order.id in newIds %}is-new{% endif %}">
+    <div class="order-head"><div><h2 class="h5 mb-1">Đơn #{{ order.id }} · {{ order.service_name }}</h2><small class="text-secondary">Tạo lúc {{ order.created_text }}</small></div><span class="status-badge status-{{ order.status }}">{{ order.status_label }}</span></div>
+    {% for item in order.items %}<div class="order-item"><img src="{{ item.image or '/img/hero-img.png' }}" alt="{{ item.title }}"><div class="flex-grow-1"><b>{{ item.title }}</b><div class="text-secondary">Đối tác: {{ item.partner or order.partner_name }}</div><small>{{ item.price | vnd }} ₫ × {{ item.quantity }}</small></div><b>{{ (item.price * item.quantity) | vnd }} ₫</b></div>{% endfor %}
+    <div class="order-meta mt-3"><div><b>Sự kiện</b><div>{{ order.event_text }}{% if order.time_text %} lúc {{ order.time_text }}{% endif %}</div><small class="text-secondary">{{ order.event_location }}</small></div><div><b>Thanh toán</b><div>{{ order.payment_method }}</div><small class="text-secondary">Phí dịch vụ đã bao gồm</small></div><div class="text-end"><b>Tổng cộng</b><div class="fs-5 fw-bold text-danger">{{ order.final_amount | vnd }} ₫</div><small class="text-secondary">Đối tác: {{ order.partner_name }}</small></div></div>
+    {% if order.status not in ['rejected','cancelled'] %}<ol class="tracking" aria-label="Tiến độ đơn hàng">{% for step in order.steps %}<li class="{% if loop.index0 <= order.step %}done{% endif %}">{{ step.label }}</li>{% endfor %}</ol>{% endif %}
+    {% if order.progress.length %}<details class="mt-3"><summary class="fw-semibold">Xem lịch sử cập nhật ({{ order.progress.length }})</summary><div class="timeline">{% for entry in order.progress %}<p><b>{{ entry.status }}</b> · {{ entry.created_at.toLocaleString('vi-VN') }}<br><span class="text-secondary">{{ entry.note or 'Cập nhật trạng thái đơn hàng.' }}</span></p>{% endfor %}</div></details>{% endif %}
+    {% if order.can_cancel %}<form method="post" action="/orders/{{ order.id }}/cancel" class="mt-3" onsubmit="return confirm('Bạn chắc chắn muốn hủy đơn đang chờ duyệt?')"><button class="btn btn-sm btn-outline-danger">Hủy đơn</button></form>{% endif %}
+    {% if order.can_review %}<form method="post" action="/orders/{{ order.id }}/review" class="review-box"><h3 class="h6 fw-bold">Đánh giá chất lượng dịch vụ</h3><div class="row g-2"><div class="col-md-3"><select class="form-select" name="rating" required><option value="">Chọn số sao</option>{% for star in [5,4,3,2,1] %}<option value="{{ star }}">{{ star }} sao</option>{% endfor %}</select></div><div class="col-md-7"><input class="form-control" name="comment" maxlength="2000" placeholder="Chia sẻ trải nghiệm của bạn"></div><div class="col-md-2"><button class="btn btn-primary w-100">Gửi đánh giá</button></div></div></form>{% elif order.review_id %}<div class="review-box"><b>Đánh giá của bạn: {{ order.review_rating }}/5 sao</b><p class="mb-0 mt-1">{{ order.review_comment or 'Không có nhận xét.' }}</p>{% if order.review_status == 'hidden' %}<small class="text-danger">Đánh giá đang bị ẩn sau khi kiểm duyệt.</small>{% endif %}</div>{% endif %}
   </article>
-  {% endfor %}
-</div>
-{% endblock content %}
+  {% else %}<div class="text-center bg-white rounded-4 p-5"><p class="text-secondary">Bạn chưa có đơn hàng nào.</p><a href="/services" class="btn btn-primary">Khám phá dịch vụ</a></div>{% endfor %}
+</div></section>
+{% endblock %}

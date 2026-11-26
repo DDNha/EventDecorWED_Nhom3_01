@@ -6,7 +6,7 @@ const { getDbConfig } = require('../js/db_config');
 
 async function main() {
   const validationDb = `eventdecor_validate_${Date.now()}`;
-  const schemaPath = path.join(__dirname, '..', 'database', 'event_decor (1).sql');
+  const schemaPath = path.join(__dirname, '..', 'database', 'event_decor.sql');
   let schema = fs.readFileSync(schemaPath, 'utf8')
     .replace(/CREATE DATABASE IF NOT EXISTS `?event_decor`?[\s\S]*?;/i, '')
     .replace(/USE `?event_decor`?\s*;/i, '');

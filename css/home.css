@@ -190,6 +190,28 @@ footer {
   color: var(--fs-text);
 }
 
+.service-partner {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 6px;
+  color: var(--fs-muted);
+  font-size: .78rem;
+  line-height: 1.25;
+}
+
+.service-partner .fa-store {
+  flex: 0 0 auto;
+  color: var(--brand-2);
+  font-size: .72rem;
+}
+
+.service-partner span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .service-rating {
   display: flex;
   align-items: center;

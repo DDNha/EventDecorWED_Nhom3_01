@@ -58,13 +58,18 @@
     setButtonLoading(button, true);
 
     try {
+      const formData = new FormData(form);
+      if (event.submitter && event.submitter.name) {
+        formData.set(event.submitter.name, event.submitter.value);
+      }
+
       const response = await fetch(form.action, {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Accept': 'application/json'
         },
-        body: new URLSearchParams(new FormData(form))
+        body: new URLSearchParams(formData)
       });
 
       const contentType = response.headers.get('content-type') || '';

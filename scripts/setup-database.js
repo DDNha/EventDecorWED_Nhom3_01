@@ -5,7 +5,7 @@ const mysql = require('mysql2/promise');
 const { getDbConfig } = require('../js/db_config');
 
 async function main() {
-  const schemaPath = path.join(__dirname, '..', 'database', 'event_decor (1).sql');
+  const schemaPath = path.join(__dirname, '..', 'database', 'event_decor.sql');
   let schema = fs.readFileSync(schemaPath, 'utf8');
 
   // Aiven đã tạo sẵn database (thường là defaultdb). Import schema vào DB_NAME

@@ -10,7 +10,7 @@ const { signInWithGoogle } = require('./js/google_auth');
 const { getDbConfig } = require('./js/db_config');
 const serviceRoutes = require('./js/service_routes');
 // Dùng chung một mảng với service_routes để trang chi tiết cũng thấy dữ liệu.
-// Dữ liệu được nạp từ bảng `products` trong database (xem loadProducts bên dưới).
+// Dữ liệu công khai được nạp từ bảng `services` trong database.
 const PRODUCTS = serviceRoutes.PRODUCTS;
 
 const app = express();
@@ -59,6 +59,7 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+serviceRoutes.setPool(pool);
 
 async function testConnection() {
   try {
@@ -72,23 +73,48 @@ async function testConnection() {
 
 if (!process.env.SKIP_DATABASE_CONNECTION_TEST) testConnection().then();
 
-// Nạp danh sách sản phẩm từ bảng `products` vào mảng PRODUCTS (ghi đè tại chỗ, giữ nguyên tham chiếu)
+// Nạp danh sách dịch vụ đã được admin duyệt vào cache dùng chung.
 let productsLoadedAt = 0;
 async function loadProducts(force = false) {
   if (!force && Date.now() - productsLoadedAt < 30 * 1000) return;
   try {
-    const [rows] = await pool.query('SELECT * FROM products ORDER BY id');
+    const [rows] = await pool.query(
+      `SELECT p.*, pt.name AS partner_name
+       FROM services p
+              LEFT JOIN partners pt ON pt.id = p.partner_id
+       WHERE p.status = 'active' AND (pt.status = 'active' OR pt.id IS NULL)
+       ORDER BY p.id`
+    );
     PRODUCTS.length = 0;
-    rows.forEach((p) => PRODUCTS.push({
-      ...p,
-      title: p.name,
-      image: p.img,
-      price: Number(p.price),
-      rating: Number(p.rating)
-    }));
+    rows.forEach((p) => {
+      // "Gói bao gồm": chấp nhận mảng, JSON string, hoặc mỗi dòng một mục
+      let includes = [];
+      if (Array.isArray(p.includes)) {
+        includes = p.includes;
+      } else if (typeof p.includes === 'string' && p.includes.trim()) {
+        try { includes = JSON.parse(p.includes); }
+        catch { includes = p.includes.split('\n').map(s => s.trim()).filter(Boolean); }
+      }
+
+      PRODUCTS.push({
+        ...p,
+        name: p.title,
+        title: p.title,
+        img: p.image,
+        image: p.image,
+        price: Number(p.price),
+        rating: Number(p.rating),
+        reviews: Number(p.reviews || 0),
+        duration: p.duration,
+        area: p.area,
+        partner: p.partner_name,
+        short: p.short_desc,
+        includes
+      });
+    });
     productsLoadedAt = Date.now();
   } catch (error) {
-    console.error('Lỗi nạp dịch vụ từ bảng products:', error.message);
+    console.error('Lỗi nạp dịch vụ từ bảng services:', error.message);
   }
 }
 
@@ -194,7 +220,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     const [existing] = await pool.execute(
-      'SELECT id FROM `users` WHERE email = ? LIMIT 1',
+      'SELECT id FROM `user` WHERE email = ? LIMIT 1',
       [email]
     );
 
@@ -207,7 +233,7 @@ app.post('/api/auth/register', async (req, res) => {
     const finalUsername = username || email.split('@')[0];
 
     const [existingUsername] = await pool.execute(
-      'SELECT id FROM `users` WHERE username = ? LIMIT 1',
+      'SELECT id FROM `user` WHERE username = ? LIMIT 1',
       [finalUsername]
     );
 
@@ -220,7 +246,7 @@ app.post('/api/auth/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const [result] = await pool.execute(
-      `INSERT INTO \`users\`
+      `INSERT INTO \`user\`
          (username, email, password, full_name, phone, role)
        VALUES (?, ?, ?, ?, ?, 'user')`,
       [finalUsername, email, passwordHash, fullName, phone || null]
@@ -267,19 +293,19 @@ app.post('/api/auth/google', async (req, res) => {
         async findByEmail(email) {
           const [accounts] = await pool.execute(
             `SELECT id, username, email, full_name, phone, role
-             FROM \`users\` WHERE email = ? LIMIT 1`, [email]
+             FROM \`user\` WHERE email = ? LIMIT 1`, [email]
           );
           return accounts[0] || null;
         },
         async findByUsername(username) {
           const [accounts] = await pool.execute(
-            'SELECT id FROM `users` WHERE username = ? LIMIT 1', [username]
+            'SELECT id FROM `user` WHERE username = ? LIMIT 1', [username]
           );
           return accounts[0] || null;
         },
         async createUser(user) {
           await pool.execute(
-            `INSERT INTO \`users\` (username, email, password, full_name, role)
+            `INSERT INTO \`user\` (username, email, password, full_name, role)
              VALUES (?, ?, ?, ?, 'user')`,
             [user.username, user.email, user.password, user.fullName]
           );
@@ -336,7 +362,7 @@ app.post('/api/auth/login', async (req, res) => {
     const [rows] = await pool.execute(
       `SELECT id, username, email, password,
               full_name, phone, role, status
-       FROM \`users\`
+       FROM \`user\`
        WHERE email = ?
          LIMIT 1`,
       [email]
@@ -372,7 +398,7 @@ app.post('/api/auth/login', async (req, res) => {
       message: 'Đăng nhập thành công!',
       redirect: account.role === 'admin'
         ? '/admin'
-        : account.role === 'partner' ? '/partner/orders/new' : '/'
+        : account.role === 'partner' ? '/partner/dashboard' : '/'
     });
 
   } catch (error) {
@@ -398,7 +424,7 @@ app.put('/api/auth/profile', isAuthenticated, async (req, res) => {
 
   try {
     const [result] = await pool.execute(
-      `UPDATE \`users\`
+      `UPDATE \`user\`
        SET full_name = ?, phone = ?
        WHERE id = ?`,
       [fullName, phone || null, userId]
@@ -495,7 +521,7 @@ app.get('/profile', isAuthenticated, async (req, res) => {
     const uid = req.session.user.id;
 
     const [users] = await pool.execute(
-      'SELECT id, username, email, full_name, phone FROM `users` WHERE id = ?',
+      'SELECT id, username, email, full_name, phone FROM `user` WHERE id = ?',
       [uid]
     );
     if (!users.length) return res.redirect('/logout');
@@ -605,91 +631,57 @@ app.get('/api/cart-count', isAuthenticated, (req, res) => {
 
 // ======================================================
 
-// === BỔ SUNG ROUTE /booking/:id ĐỂ KHẮC PHỤC LỖI Cannot GET /booking/1 ===
-app.get('/booking/:id', isAuthenticated, async (req, res) => {
-  const serviceId = parseInt(req.params.id, 10);
-
-  try {
-    // Truy vấn trực tiếp bảng `products` trong database để không sợ bị rỗng dữ liệu
-    const [rows] = await pool.query('SELECT * FROM products WHERE id = ? LIMIT 1', [serviceId]);
-
-    if (rows.length === 0) {
-      return res.status(404).send("Không tìm thấy dịch vụ hoặc sản phẩm để đặt lịch.");
-    }
-
-    const found = rows[0];
-
-    // Chuẩn hóa object product đầy đủ giá và đường dẫn ảnh
-    const product = {
-      ...found,
-      title: found.name,
-      price: Number(found.price) || 0,
-      img: found.img || found.image || '',
-      image: found.img || found.image || ''
-    };
-
-    res.render('checkout.html', {
-      product,
-      user: req.session.user
-    });
-  } catch (error) {
-    console.error('Lỗi tải trang booking:', error);
-    res.status(500).send('Lỗi truy vấn database');
+// "Đặt dịch vụ": thêm dịch vụ vào giỏ rồi chuyển sang trang thanh toán chung (/checkout)
+app.get('/booking/:id', isAuthenticated, (req, res) => {
+  const product = findProduct(req.params.id);
+  if (!product) {
+    return res.status(404).send('Không tìm thấy dịch vụ để đặt.');
   }
-});
 
-// Các trang Quản trị (Admin)
-app.get("/admin", (req, res) => {
-  res.render("admin/dashboard.html");
-});
-app.get("/admin/manager-customer", (req, res) => {
-  res.render("admin/manager-customer.html");
-});
-app.get("/admin/manager-partner", (req, res) => {
-  res.render("admin/manager-partner.html");
-});
-app.get("/admin/approve-event", (req, res) => {
-  res.render("admin/approve-event.html");
-});
-app.get("/admin/available-event", (req, res) => {
-  res.render("admin/available-event.html");
-});
-app.get("/admin/orders", (req, res) => {
-  res.render("admin/orders.html");
-});
-app.get("/admin/report-review", (req, res) => {
-  res.render("admin/report-review.html");
-});
-app.get("/admin/financial-payout", (req, res) => {
-  res.render("admin/financial-payout.html");
+  if (!req.session.cart) req.session.cart = [];
+  if (!req.session.cart.some((i) => i.product_id === product.id)) {
+    req.session.cart.push({
+      product_id: product.id,
+      name: product.name,
+      price: product.price,
+      img: product.image,
+      qty: 1
+    });
+  }
+
+  req.session.save(() => res.redirect('/checkout'));
 });
 
 // Chi tiết đối tác: /partner/:id
-app.get('/partner/:id', async (req, res) => {
+app.get('/partner/:id', async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id < 1) {
-    return res.status(404).send("Không tìm thấy đối tác");
+    return next();
   }
 
   try {
-    const sql = `
-      SELECT p.name, p.image, p.description, p.address, p.phone, p.email,
-             s.name AS specialty_name
-      FROM partners p
-             JOIN partner_specialties ps ON ps.partner_id = p.id
-             JOIN specialties s ON s.id = ps.specialty_id
-      WHERE p.id = ?`;
-    const [rows] = await pool.query(sql, [id]);
+    const [rows] = await pool.query(
+      `SELECT id, name, image, description, address, phone, email
+       FROM partners WHERE id = ? AND status = 'active'`,
+      [id]
+    );
     if (rows.length === 0) {
       return res.status(404).send("Không tìm thấy đối tác");
     }
+    const [specialties] = await pool.query(
+      `SELECT DISTINCT category AS specialty_name
+       FROM services
+       WHERE partner_id = ? AND status = 'active' AND category IS NOT NULL
+       ORDER BY category`,
+      [id]
+    );
     const [other] = await pool.query(
       `SELECT id, name FROM partners where id <> ? limit 2`,
       [id],
     );
     return res.render("detailed-partner.html", {
       parts: rows[0],
-      spec: rows.map((r) => r.specialty_name),
+      spec: specialties.map((row) => row.specialty_name),
       other,
     });
   } catch (error) {
@@ -707,7 +699,7 @@ app.use('/', checkoutRoutes({ pool, PRODUCTS, SERVICES: PRODUCTS, isAuthenticate
 
 // Khu vực quản trị và cổng tạo đơn dành cho đối tác
 const createAdminRoutes = require('./js/admin_routes');
-app.use('/', createAdminRoutes({ pool }));
+app.use('/', createAdminRoutes({ pool, refreshServices: () => loadProducts(true) }));
 
 app.use((error, req, res, next) => {
   console.error('Lỗi xử lý yêu cầu:', error);

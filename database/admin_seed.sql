@@ -41,9 +41,12 @@ ON DUPLICATE KEY UPDATE
 
 SET @partner_party := (SELECT id FROM partners WHERE user_id = @partner_party_user LIMIT 1);
 SET @partner_media := (SELECT id FROM partners WHERE user_id = @partner_media_user LIMIT 1);
-SET @service_id := (SELECT id FROM products ORDER BY id LIMIT 1);
+SET @service_id := (SELECT id FROM services WHERE status = 'active' ORDER BY id LIMIT 1);
 
 -- 3. Xóa riêng dữ liệu seed cũ để chạy lại không bị trùng
+DELETE rr FROM review_reports rr JOIN reviews r ON r.id = rr.review_id JOIN orders o ON o.id = r.order_id WHERE o.note LIKE '[ADMIN-SEED:%';
+DELETE r FROM reviews r JOIN orders o ON o.id = r.order_id WHERE o.note LIKE '[ADMIN-SEED:%';
+DELETE op FROM order_progress op JOIN orders o ON o.id = op.order_id WHERE o.note LIKE '[ADMIN-SEED:%';
 DELETE oi
 FROM order_items oi
 INNER JOIN orders o ON o.id = oi.order_id
@@ -77,7 +80,7 @@ VALUES
 
   (@customer_anna, @partner_media, 'customer', 'Nguyễn Minh Anh', '0901000002', 'Quay phim sự kiện doanh nghiệp',
    DATE_ADD(CURRENT_DATE, INTERVAL 10 DAY), '09:00:00', 'Bình Thạnh, TP.HCM', '[ADMIN-SEED:O05] Đơn đang thực hiện',
-   42000000, 0, 42000000, 'Chuyển khoản', 'processing', 10, 4200000, 37800000, 'Đối tác đang chuẩn bị thiết bị.', @admin_id, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 1 MONTH)),
+   42000000, 0, 42000000, 'Chuyển khoản', 'setup', 10, 4200000, 37800000, 'Đối tác đang setup không gian.', @admin_id, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 1 MONTH)),
 
   (@customer_bao, @partner_party, 'customer', 'Trần Quốc Bảo', '0901000003', 'Tiệc sinh nhật trọn gói',
    DATE_SUB(CURRENT_DATE, INTERVAL 5 DAY), '18:30:00', 'Gò Vấp, TP.HCM', '[ADMIN-SEED:O06] Hoàn thành tháng này',
@@ -112,6 +115,25 @@ INSERT INTO order_items (order_id, service_id, quantity, price)
 SELECT id, @service_id, 1, total_amount
 FROM orders
 WHERE note LIKE '[ADMIN-SEED:%' AND @service_id IS NOT NULL;
+
+-- Bổ sung mốc thời gian và lịch sử để kiểm thử đúng quy trình mới.
+UPDATE orders SET
+  assigned_at = CASE WHEN status IN ('approved','accepted','surveying','setup','inspection','completed') THEN COALESCE(approved_at, created_at) ELSE NULL END,
+  accepted_at = CASE WHEN status IN ('accepted','surveying','setup','inspection','completed') THEN COALESCE(approved_at, created_at) ELSE NULL END,
+  surveying_at = CASE WHEN status IN ('surveying','setup','inspection','completed') THEN COALESCE(approved_at, created_at) ELSE NULL END,
+  setup_at = CASE WHEN status IN ('setup','inspection','completed') THEN COALESCE(approved_at, created_at) ELSE NULL END,
+  inspection_at = CASE WHEN status IN ('inspection','completed') THEN COALESCE(approved_at, created_at) ELSE NULL END,
+  completed_at = CASE WHEN status = 'completed' THEN TIMESTAMP(event_date, COALESCE(event_time, '00:00:00')) ELSE NULL END
+WHERE note LIKE '[ADMIN-SEED:%';
+
+INSERT INTO order_progress (order_id, status, note, actor_id, actor_role)
+SELECT id, status, CONCAT('[SEED] Trạng thái hiện tại: ', status),
+       CASE WHEN status = 'pending' THEN user_id ELSE @admin_id END,
+       CASE WHEN status = 'pending' AND user_id IS NOT NULL THEN 'user' ELSE 'admin' END
+FROM orders WHERE note LIKE '[ADMIN-SEED:%';
+
+UPDATE orders SET payout_status = 'paid', paid_at = completed_at, paid_by = @admin_id
+WHERE note LIKE '[ADMIN-SEED:O09]%' AND status = 'completed';
 
 SET @seed_order_pending := (SELECT id FROM orders WHERE note LIKE '[ADMIN-SEED:O01]%' LIMIT 1);
 SET @seed_order_done := (SELECT id FROM orders WHERE note LIKE '[ADMIN-SEED:O06]%' LIMIT 1);

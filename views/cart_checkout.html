@@ -28,13 +28,22 @@
               <label class="form-label">Địa điểm tổ chức</label>
               <input class="form-control" name="address" value="{{ form.address }}" required>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Ngày tổ chức</label>
-              <input type="date" class="form-control" name="date" value="{{ form.date }}" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Giờ (tuỳ chọn)</label>
-              <input type="time" class="form-control" name="time" value="{{ form.time }}">
+            <div class="col-12">
+              <h6 class="fw-bold mt-2">Chọn lịch rảnh của đối tác</h6>
+              {% for group in scheduleGroups %}
+              <div class="border rounded-3 p-3 mb-2">
+                <label class="form-label fw-semibold">{{ group.partnerName }}</label>
+                <select class="form-select" name="schedule_{{ group.partnerId }}" required>
+                  <option value="">Chọn ngày và khung giờ</option>
+                  {% for slot in group.slots %}
+                  <option value="{{ slot.id }}" {% if form['schedule_' + group.partnerId] == slot.id %}selected{% endif %}>
+                    {{ slot.work_date.toLocaleDateString('vi-VN') }} · {{ slot.start_time.slice(0,5) }}–{{ slot.end_time.slice(0,5) }}{% if slot.note %} · {{ slot.note }}{% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+                {% if not group.slots.length %}<small class="text-danger">Đối tác chưa có lịch rảnh. Vui lòng quay lại sau hoặc chọn dịch vụ khác.</small>{% endif %}
+              </div>
+              {% endfor %}
             </div>
             <div class="col-12">
               <label class="form-label">Ghi chú</label>
@@ -60,9 +69,14 @@
         <div class="card-body p-4">
           <h5 class="fw-bold mb-3">Tóm tắt ({{ lines | length }} dịch vụ)</h5>
           {% for l in lines %}
-          <div class="d-flex justify-content-between mb-2 small">
-            <span class="text-muted">{{ l.service.title }} x{{ l.qty }}</span>
-            <span>{{ l.lineTotal | vnd }} ₫</span>
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <img src="{{ l.service.image or '/img/hero-img.png' }}" alt="{{ l.service.title }}" onerror="this.onerror=null;this.src='/img/hero-img.png'"
+                 style="width:72px;height:72px;object-fit:cover;border-radius:10px;background:#eee;">
+            <div class="flex-grow-1 small">
+              <div class="fw-semibold">{{ l.service.title }} x{{ l.qty }}</div>
+              <div class="text-muted">Đối tác: {{ l.service.partner }}</div>
+            </div>
+            <span class="small">{{ l.lineTotal | vnd }} ₫</span>
           </div>
           {% endfor %}
           <hr>

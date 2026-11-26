@@ -84,9 +84,13 @@
       data-price="{{ s.price }}"
     >
       <article class="service-card">
-        <img class="thumb" src="{{ s.image }}" alt="{{ s.title }}" />
+        <img class="thumb" src="{{ s.image or '/img/hero-img.png' }}" alt="{{ s.title }}" onerror="this.onerror=null;this.src='/img/hero-img.png'" />
         <div class="body">
           <h3 class="service-title">{{ s.title }}</h3>
+          <div class="service-partner" title="Đối tác: {{ s.partner or 'Chưa cập nhật' }}">
+            <i class="fa-solid fa-store" aria-hidden="true"></i>
+            <span>{{ s.partner or 'Chưa cập nhật đối tác' }}</span>
+          </div>
           <div class="service-rating">
             <i class="fa-solid fa-star"></i>
             <span class="score">{{ s.rating }}</span>

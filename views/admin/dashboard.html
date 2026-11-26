@@ -31,6 +31,7 @@
   <article class="panel priority-panel">
     <div class="panel-head"><div><h2>Việc cần xử lý</h2><p>Các đầu việc đang chờ admin</p></div></div>
     <a class="priority-row" href="/admin/orders?status=pending"><span class="priority-icon orange">▤</span><span><b>Đơn hàng mới</b><small>Kiểm tra và duyệt đơn từ đối tác</small></span><strong>{{ stats.pending_orders }}</strong></a>
+    <a class="priority-row" href="/admin/services?status=pending"><span class="priority-icon blue">◆</span><span><b>Dịch vụ chờ duyệt</b><small>Kiểm tra nội dung đối tác đăng tải</small></span><strong>{{ stats.pending_services }}</strong></a>
     <a class="priority-row" href="/admin/reports"><span class="priority-icon red">!</span><span><b>Phản ánh</b><small>Phản hồi khách hàng và đối tác</small></span><strong>{{ stats.open_reports }}</strong></a>
     <a class="priority-row" href="/admin/users"><span class="priority-icon blue">♙</span><span><b>Tài khoản</b><small>Quản lý quyền và trạng thái</small></span><strong>{{ stats.users }}</strong></a>
   </article>

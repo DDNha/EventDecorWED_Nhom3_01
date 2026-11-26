@@ -43,13 +43,13 @@
               </a>
             </li>
             <li id="partnerMenuItem" hidden="hidden">
-              <a class="dropdown-item" href="/partner/orders/new">
-                <i class="fa-solid fa-file-circle-plus me-2"></i>Tạo đơn đối tác
+              <a class="dropdown-item" href="/partner/dashboard">
+                <i class="fa-solid fa-briefcase me-2"></i>Cổng đối tác
               </a>
             </li>
-            <li>
+            <li id="customerOrdersMenuItem">
               <a class="dropdown-item" href="/profile">
-                <i class="fa-regular fa-user me-2"></i>Hồ sơ khách hàng
+                <i class="fa-regular fa-user me-2"></i>Hồ sơ tài khoản
               </a>
             </li>
             <li>
@@ -85,7 +85,10 @@
       document.getElementById('userMenu').hidden = false;
       document.getElementById('logout').hidden = false;
       if (data.user.role === 'admin') document.getElementById('adminMenuItem').hidden = false;
-      if (data.user.role === 'partner') document.getElementById('partnerMenuItem').hidden = false;
+      if (data.user.role === 'partner') {
+        document.getElementById('partnerMenuItem').hidden = false;
+        document.getElementById('customerOrdersMenuItem').hidden = true;
+      }
     })
     .catch(err => {
       console.error('Lỗi lấy thông tin user:', err);

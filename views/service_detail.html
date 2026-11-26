@@ -46,7 +46,7 @@
   <div class="row g-5">
     <!-- Ảnh -->
     <div class="col-12 col-lg-6">
-      <img class="sd-image" src="{{ service.image }}" alt="{{ service.title }}">
+      <img class="sd-image" src="{{ service.image or '/img/hero-img.png' }}" alt="{{ service.title }}" onerror="this.onerror=null;this.src='/img/hero-img.png'">
     </div>
 
     <!-- Thông tin chính -->
@@ -67,6 +67,9 @@
         <div class="mb-2"><i class="fa-regular fa-clock me-2"></i>Thời lượng: {{ service.duration }}</div>
         <div class="mb-2"><i class="fa-solid fa-location-dot me-2"></i>Khu vực phục vụ: {{ service.area }}</div>
         <div><i class="fa-solid fa-shop me-2"></i>Đối tác: {{ service.partner }}</div>
+        <div class="mt-2"><i class="fa-regular fa-calendar-check me-2"></i>Lịch rảnh sắp tới:
+          {% for slot in availableSchedules %}<span class="badge text-bg-light border me-1">{{ slot.work_date.toLocaleDateString('vi-VN') }} {{ slot.start_time.slice(0,5) }}</span>{% else %}<span class="text-danger">Chưa có lịch trống</span>{% endfor %}
+        </div>
       </div>
 
       <div class="sd-actions">
@@ -83,6 +86,7 @@
           <i class="fa-regular fa-bookmark me-1"></i>Lưu
         </button>
       </div>
+    </div>
   </div>
 
   <!-- Gói bao gồm -->
@@ -99,6 +103,29 @@
   <section class="sd-section">
     <h2>Mô tả chi tiết</h2>
     <p class="sd-desc">{{ service.description }}</p>
+  </section>
+
+  <!-- Dịch vụ khác -->
+  <section class="sd-section">
+    <h2>Đánh giá từ khách hàng đã hoàn thành dịch vụ</h2>
+    {% for review in reviews %}
+    <article class="sd-box">
+      <div class="d-flex justify-content-between gap-3">
+        <div><b>{{ review.full_name }}</b> · <span class="text-warning">{{ review.rating }}/5 ★</span></div>
+        <small class="text-secondary">{{ review.created_at.toLocaleDateString('vi-VN') }}</small>
+      </div>
+      <p class="mb-2 mt-2">{{ review.comment or 'Không có nhận xét.' }}</p>
+      {% if review.partner_reply %}<div class="alert alert-light border py-2"><b>Phản hồi từ đối tác:</b> {{ review.partner_reply }}</div>{% endif %}
+      {% if user %}
+      <details><summary class="small text-secondary">Báo cáo nội dung vi phạm</summary>
+        <form method="post" action="/reviews/{{ review.id }}/report" class="d-flex gap-2 mt-2">
+          <input class="form-control form-control-sm" name="reason" minlength="5" required placeholder="Lý do báo cáo">
+          <button class="btn btn-sm btn-outline-danger">Gửi báo cáo</button>
+        </form>
+      </details>
+      {% endif %}
+    </article>
+    {% else %}<p class="text-secondary">Dịch vụ chưa có đánh giá.</p>{% endfor %}
   </section>
 
   <!-- Dịch vụ khác -->
